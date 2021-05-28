@@ -41,7 +41,7 @@
 # 1.1. Internet ip address
 # 
 #
-Internet_IP="10.0.1.x"
+Internet_IP="10.0.1.4"
 Internet_IP_RANGE="10.0.1.0/24"
 Internet_BCAST_ADRESS="10.0.1.255"
 Internet_IFACE="enp0s8"
@@ -54,7 +54,7 @@ Internet_IFACE="enp0s8"
 #
 # IP addresses of the client-side network
 #
-Client_NET_IP="10.0.2.y"
+Client_NET_IP="10.0.2.4"
 Client_NET_IP_RANGE="10.0.2.0/24"
 Client_NET_BCAST_ADRESS="10.0.2.255"
 Client_NET_IFACE="enp0s3"
@@ -67,7 +67,7 @@ LO_IFACE="lo"
 LO_IP="127.0.0.1"
 WEB_IP_ADDRESS="127.0.0.1"
 #IP aliases for NATed services (this is the GW's ip on client network)
-NAT_WEB_IP_ADDRESS="10.0.2.y"
+NAT_WEB_IP_ADDRESS="10.0.2.5"
 
 ####
 # 1.4 IPTables Configuration.
@@ -216,10 +216,10 @@ $IPTABLES -P FORWARD DROP
 # Create separate chains for allowed (whitelist), ICMP, TCP and UDP to traverse
 #
 
-#$IPTABLES -N allowed
-#$IPTABLES -N tcp_packets
-#$IPTABLES -N udp_packets
-#$IPTABLES -N icmp_packets
+$IPTABLES -N allowed
+$IPTABLES -N tcp_packets
+$IPTABLES -N udp_packets
+$IPTABLES -N icmp_packets
 
 #
 # In the following 4.1.x, you can provide individual user-specified rules
@@ -241,9 +241,9 @@ $IPTABLES -P FORWARD DROP
 # 4.1.4 Example of allowed chain (allow packets for initial TCP or already established TCP sessions)
 #
 
-#$IPTABLES -A allowed -p TCP --syn -j ACCEPT
-#$IPTABLES -A allowed -p TCP -m state --state ESTABLISHED,RELATED -j ACCEPT
-#$IPTABLES -A allowed -p TCP -j DROP
+$IPTABLES -A allowed -p TCP --syn -j ACCEPT
+$IPTABLES -A allowed -p TCP -m state --state ESTABLISHED,RELATED -j ACCEPT
+$IPTABLES -A allowed -p TCP -j DROP
 
 
 #####
@@ -258,8 +258,12 @@ $IPTABLES -P FORWARD DROP
 #$IPTABLES -A FORWARD -p tcp -j bad_tcp_packets
 
 # Allow http traffic from client network to server network
-
-
+$IPTABLES -A INPUT -i lo -j ACCEPT
+$IPTABLES -A OUTPUT -o lo -j ACCEPT
+#$IPTABLES -A INPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+#$IPTABLES -A OUTPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate ESTABLISHED -j ACCEPT
+#$IPTABLES -A INPUT -s 10.0.2.0/24  -m state --state NEW -p tcp --dport 80 -j ACCEPT
+#$IPTABLES -A INPUT -s 10.0.2.0/24  -m state --state NEW -p tcp --dport 443 -j ACCEPT
 
 # example of using allowed
 #$IPTABLES -A FORWARD -p tcp -j allowed
@@ -273,6 +277,7 @@ $IPTABLES -P FORWARD DROP
 # Provide your input rules below to allow web traffic from client
 #
 $IPTABLES -A INPUT -p TCP --dport 80 -i $Client_NET_IFACE -d $WEB_IP_ADDRESS -j ACCEPT
+$IPTABLES -A OUTPUT -p TCP --dport 80 -o $Client_NET_IFACE -d $WEB_IP_ADDRESS -j ACCEPT
 
 #
 # Example of checking bad TCP packets we don't want.
@@ -285,7 +290,7 @@ $IPTABLES -A INPUT -p TCP --dport 80 -i $Client_NET_IFACE -d $WEB_IP_ADDRESS -j 
 
 # Allowed ping from client and server
 
-$IPTABLES -A INPUT -p icmp -j ACCEPT
+#$IPTABLES -A INPUT -p icmp -j ACCEPT
 
 #####
 # 4.3 OUTPUT chain
@@ -297,7 +302,10 @@ $IPTABLES -A INPUT -p icmp -j ACCEPT
 
 # example Allowed ping message back to client 
 
-# $IPTABLES -A OUTPUT -p icmp -j ACCEPT
+#$IPTABLES -A OUTPUT -p icmp -j ACCEPT
+$IPTABLES -A INPUT -s 10.0.2.4 -p icmp --icmp-type echo-request -j DROP
+$IPTABLES -A OUTPUT -s 10.0.2.4 -p icmp --icmp-type echo-reply -j DROP
+#$IPTABLES -A FORWARD -i enp0s3 -o enp0s8 -p icmp 
 
 #####################################################################
 #                                                                   #
@@ -318,7 +326,7 @@ $IPTABLES -A INPUT -p icmp -j ACCEPT
 
 # web 
 #$IPTABLES -t nat -A PREROUTING -p tcp -d $NAT_WEB_IP_ADDRESS --dport 80 -j DNAT --to $WEB_IP_ADDRESS
-
+#$IPTABLES -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j DNAT --to-destination 192.0.2.2
 
 
 
@@ -330,5 +338,4 @@ $IPTABLES -A INPUT -p icmp -j ACCEPT
 # Add your own rule below to only allow ping from client to 8.8.8.8 on internet
 
 # Example: Allow client node to access to all Internet using masquerade
-# $IPTABLES -t nat -A POSTROUTING -o $Internet_IFACE -j MASQUERADE
-
+$IPTABLES -t nat -A POSTROUTING -s 10.0.2.4 -d 8.8.8.8 -o $Internet_IFACE -j MASQUERADE
