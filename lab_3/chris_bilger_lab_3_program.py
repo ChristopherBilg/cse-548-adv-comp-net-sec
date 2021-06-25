@@ -38,7 +38,7 @@ def main():
         if known_sources.get(dl_src, None) is None:
             known_sources[dl_src] = nw_src
         elif known_sources.get(dl_src) != nw_src:
-            string_to_write = "1," + dl_src + ",00:00:00:00:00:02,any,any,any,any,any\n"
+            string_to_write = "1," + dl_src + ",00:00:00:00:00:02,any,any,any,any,tcp\n"
 
             if known_blocked.get(dl_src, None) is None:
                 known_blocked[dl_src] = True
